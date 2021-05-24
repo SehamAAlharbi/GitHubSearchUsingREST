@@ -29,7 +29,7 @@ public class Search {
 
 	public static void main(String[] args) throws Exception {
 
-		// To parse or print the resulted response JSON map.
+		// To parse or print the resulted response JSON map to be used.
 		gson = new GsonBuilder().setPrettyPrinting().create();
 		searchForRepos();
 	}

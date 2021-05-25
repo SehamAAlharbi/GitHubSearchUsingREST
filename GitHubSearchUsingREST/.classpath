@@ -17,5 +17,6 @@
 	<classpathentry kind="lib" path="Lib/httpcore-4.4.10.jar"/>
 	<classpathentry kind="lib" path="Lib/httpcore-4.4.13.jar"/>
 	<classpathentry kind="lib" path="Lib/org.eclipse.egit.github.core-2.1.5.jar"/>
+	<classpathentry kind="lib" path="Lib/commons-io-2.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

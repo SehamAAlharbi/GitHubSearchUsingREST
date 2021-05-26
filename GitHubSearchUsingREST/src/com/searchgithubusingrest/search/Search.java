@@ -1,8 +1,9 @@
 package com.searchgithubusingrest.search;
 
-import java.io.File;
+import java.io.File;	
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ public class Search {
 		// To parse or print the resulted response JSON map to be used.
 		gson = new GsonBuilder().setPrettyPrinting().create();
 		searchForRepos();
+//		getFileContent ("SehamAAlharbi/JsoupImageCount");
 	}
 	
 	/**
@@ -48,13 +50,14 @@ public class Search {
 	 * @param repo is the repository to search its code
 	 * @throws ClientProtocolException
 	 * @throws IOException
+	 * @throws URISyntaxException 
 	 */
 
-	public static void searchRepoCode(String repo) throws ClientProtocolException, IOException {
+	public static void searchRepoCode(String repo) throws ClientProtocolException, IOException, URISyntaxException {
 
 		String codeContentQuery = "jsoup+in:file,path+language:java+repo:" + repo;
 
-		Map contentSearchResult = makeRESTCall(GITHUB_API_BASE_URL + GITHUB_API_SEARCH_CODE_PATH + codeContentQuery,
+		Map contentSearchResult = makeRESTCallReturnMap(GITHUB_API_BASE_URL + GITHUB_API_SEARCH_CODE_PATH + codeContentQuery,
 				"application/vnd.github.v3.text-match+json");
 
 		System.out.println("\nTotal number of Java Files = " + contentSearchResult.get("total_count") + "\n");
@@ -66,6 +69,8 @@ public class Search {
 			r.getAsJsonObject().get("text_matches").getAsJsonArray()
 					.forEach(t -> System.out.println("Matched line: " + t.getAsJsonObject().get("fragment")));
 		});
+		
+		getFileContent (repo);
 	}
 	
 	/**
@@ -82,9 +87,9 @@ public class Search {
 
 		// When you provide the text-match media type, you will receive an extra key in the JSON payload called text_matches
 		// that provides information about the position of your search terms within the text and the property that includes the search term.
-		Map repoSearchResult = makeRESTCall(GITHUB_API_BASE_URL + GITHUB_API_SEARCH_REPO_PATH + repoQuery,
+		Map repoSearchResult = makeRESTCallReturnMap(GITHUB_API_BASE_URL + GITHUB_API_SEARCH_REPO_PATH + repoQuery,
 				"application/vnd.github.v3.text-match+json");
-
+	
 		System.out.println("\nTotal number of  Repositories= " + repoSearchResult.get("total_count") + "\n");
 		gson.toJsonTree(repoSearchResult).getAsJsonObject().get("items").getAsJsonArray().forEach(r -> {
 			System.out.println("\n" + count + ". Repo Name: " + r.getAsJsonObject().get("full_name"));
@@ -97,60 +102,49 @@ public class Search {
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (URISyntaxException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 
 		});
-		
-//		getFileContent (repoSearchResult);
 
 	}
 	
 	/**
-	 * This method will print out the content of the extracted java files 
+	 * This method will print out the content of the extracted java files
+	 * It uses GitHub contents API
+	 * @throws IOException 
+	 * @throws ClientProtocolException 
+	 * @throws URISyntaxException 
 	 */
-	public static void getFileContent (String repoName, String ) {
+	public static void getFileContent (String repoName) throws ClientProtocolException, IOException, URISyntaxException {
 		
-		/*
-		 * Call GitHub REST API - https://developer.github.com/v3/repos/contents/
-		 * 
-		 * Using Spring's RestTemplate to simplify REST call. Any other REST client
-		 * library can be used here.
-		 */
-		
-	
-		List<Map> response = new ArrayList<Map> ();
-		response.add(makeRESTCall(GITHUB_API_BASE_URL + GITHUB_API_REPO_Content_PATH + repoName +"/contents",
-				"application/vnd.github.v3.text-match+json"));
+		ArrayList <Map> response = makeRESTCallReturnArrayList(GITHUB_API_BASE_URL + GITHUB_API_REPO_Content_PATH + repoName + "/contents/src" );
  
 		// To print response JSON, using GSON. Any other JSON parser can be used here.
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		System.out.println("<JSON RESPONSE START>\n" + gson.toJson(response) + "\n<JSON RESPONSE END>\n");
  
 		// Iterate through list of file metadata from response.
-		for (List<Map> fileMetaData : response) {
+		for (Map fileMetaData : response) {
  
 			// Get file name & raw file download URL from response.
 			String fileName = (String) fileMetaData.get("name");
 			String downloadUrl = (String) fileMetaData.get("download_url");
-			System.out.println("File Name = " + fileName + " | Download URL = " + downloadUrl);
- 
-			// We will only fetch read me file for this example.
-			if (downloadUrl != null && downloadUrl.contains("README")) {
- 
+			
+			// Only fetch the files with .java extension.
+			if (fileName.contains(".java") && downloadUrl != null) {
+			System.out.println("File Name = " + fileName + "\nDownload URL = " + downloadUrl);
 				/*
 				 * Get file content as string
-				 * 
-				 * Using Apache commons IO to read content from the remote URL. Any other HTTP
-				 * client library can be used here.
+				 * Using Apache commons IO to read content from the remote URL.
 				 */
 				String fileContent = IOUtils.toString(new URI(downloadUrl), Charset.defaultCharset());
 				System.out.println("\nfileContent = <FILE CONTENT START>\n" + fileContent + "\n<FILE CONTENT END>\n");
  
 				/*
-				 * Download read me file to local.
-				 * 
-				 * Using Apache commons IO to create file from remote content. Any other library
-				 * or code can be written to get content from URL & create file in local.
+				 * Download the file to local.
+				 * Using Apache commons IO to create file from remote content. 
 				 */
 				File file = new File("github-api-downloaded-" + fileName);
 				FileUtils.copyURLToFile(new URL(downloadUrl), file);
@@ -159,10 +153,10 @@ public class Search {
 	}
 
 	/**
-	 * This method will make a REST GET call for this URL using Apache http client &
+	 * This method makes a REST GET call for a URL using Apache http client &
 	 * fluent library. Then parse response using GSON & return parsed Map.
 	 */
-	public static Map makeRESTCall(String restUrl, String acceptHeaderValue)
+	public static Map makeRESTCallReturnMap(String restUrl, String acceptHeaderValue)
 			throws ClientProtocolException, IOException {
 		Request request = Request.Get(restUrl);
 
@@ -176,6 +170,27 @@ public class Search {
 		// To print response JSON, using GSON
 		Map jsonMap = gson.fromJson(jsonString, Map.class);
 		return jsonMap;
+	}
+	
+	/**
+	 * This method makes a REST GET call for a URL and return an ArrayList of json response
+	 * @param restUrl
+	 * @return jsonContent
+	 * @throws ClientProtocolException
+	 * @throws IOException
+	 */
+	
+	private static ArrayList makeRESTCallReturnArrayList(String restUrl) throws ClientProtocolException, IOException {
+		
+		Content content = Request.Get(restUrl).execute().returnContent();
+		String jsonString = content.asString();
+		
+		// Print the content to check it before sending it back
+//		System.out.println("content = " + jsonString);
+ 
+		// To send it back the response using GSON
+		ArrayList jsonContent = gson.fromJson(jsonString, ArrayList.class);
+		return jsonContent;
 	}
 
 }
